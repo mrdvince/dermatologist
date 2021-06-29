@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(dermatologist)
 set(CMAKE_CXX_STANDARD 14)
 
-find_package(Torch REQUIRED)
+find_package(Torch REQUIRED PATHS ~/libtorch)
+find_package(OpenCV REQUIRED)
 
-option(DOWNLOAD_DERMATOLOGIST "Download the dermatologist dataset from the interweb" ON)
+option(DOWNLOAD_DERMATOLOGIST "Download the dermatologist dataset from the interweb" OFF)
 if (DOWNLOAD_DERMATOLOGIST)
   message(STATUS "Downloading dermatologist dataset")
   execute_process(
@@ -17,8 +18,10 @@ if (DOWNLOAD_DERMATOLOGIST)
 endif()
 
 add_executable(dermatologist dermatologist.cpp)
+
 target_compile_features(dermatologist PUBLIC cxx_range_for)
 target_link_libraries(dermatologist ${TORCH_LIBRARIES})
+target_link_libraries(dermatologist ${OpenCV_LIBS})
 
 if (MSVC)
   file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
