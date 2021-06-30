@@ -5,7 +5,13 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 
-// rezize image to -> (224, 224, 3)
+/**
+* Returns an image tensor (shape 224,224,3) -> takes in an image path
+*
+* @param Image path
+* @return Image tensor (shape -> 224, 224, 3)
+*/
+
 torch::Tensor read_data(std::string path);
 
 // return label as integer
@@ -55,6 +61,6 @@ class DermDataset : public torch::data::Dataset<DermDataset> {
         return {sample_img.clone(), sample_label.clone()};
     };
     torch::optional<size_t> size() const override {
-       return ds_size; 
+        return ds_size;
     }
 };
