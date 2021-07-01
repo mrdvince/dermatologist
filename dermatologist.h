@@ -1,4 +1,4 @@
-// #include <dirent.h>
+#include <dirent.h>
 #include <torch/script.h>
 #include <torch/torch.h>
 

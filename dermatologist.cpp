@@ -50,3 +50,78 @@ std::vector<torch::Tensor> process_labels(std::vector<int> list_labels) {
     };
     return labels;
 }
+
+std::pair<std::vector<std::string>, std::vector<int>> load_data_from_folder(
+    std::vector<std::string> folder_names) {
+    std::vector<std::string> list_images;
+    std::vector<int> list_labels;
+    int label = 0;
+    for (auto const &value : folder_names) {
+        std::string base_name = value + "/";
+        printf("base_name");
+        DIR *dir;
+        struct dirent *ent;
+        if ((dir = opendir(base_name.c_str())) != NULL) {
+            while ((ent = readdir(dir)) != NULL) {
+                std::string filename = ent->d_name;
+                if (filename.length() > 4 && filename.substr(filename.length() - 3) == "jpg") {
+                    list_images.push_back(base_name + ent->d_name);
+                    list_labels.push_back(label);
+                }
+            }
+            closedir(dir);
+        } else {
+            printf("Could not open directory");
+        }
+        label += 1;
+    }
+    return std::make_pair(list_images, list_labels);
+}
+
+template <typename Dataloader>
+void train(torch::jit::script::Module model,
+           torch::nn::Linear linear,
+           Dataloader &dataloader,
+           torch::optim::Optimizer &optimizer,
+           size_t dataset_size) {
+    float best_accuracy = 0.0;
+    int batch_index = 0;
+
+    for (int i = 0; i < 25; i++) {
+        float mse = 0.0, acc = 0.0;
+        for (auto &batch : *dataloader) {
+            auto data = batch.data;
+            auto target = batch.target.squeeze();
+            // TODO: check the docs
+            data = data.to(torch::kF32);
+            target = target.to(torch::kInt64);
+
+            std::vector<torch::jit::IValue> input;
+            input.push_back(data);
+            optimizer.zero_grad();
+            auto output = model.forward(input).toTensor();
+            output = output.view({output.size(0), -1});
+            output = linear(output);
+            auto loss = torch::cross_entropy_loss(torch::softmax(output, 1), target);
+            loss.backward();
+            optimizer.step();
+            auto accuracy = output.argmax(1).eq(target).sum;
+            acc += accuracy.template item<float>();
+            mse += mse.template item<float>();
+            batch_index += 1;
+        }
+        mse = mse / float(batch_index);  // mean of the loss
+        std::cout << "Epoch: " << i << ", "
+                  << "Accuracy: " << acc / dataset_size << ", "
+                  << "MSE: " << mse << std::endl;
+
+        test(model, linear, dataloader, dataloader, dataset_size);
+
+        if (acc / dataset_size > best_accuracy) {
+            best_accuracy = acc / dataset_size;
+            printf("Saving model");
+            model.save("model.pt");
+            torch::save(linear, "model_linear.pt");
+        }
+    }
+}
