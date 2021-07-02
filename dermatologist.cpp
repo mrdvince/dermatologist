@@ -115,7 +115,7 @@ void train(torch::jit::script::Module model,
                   << "Accuracy: " << acc / dataset_size << ", "
                   << "MSE: " << mse << std::endl;
 
-        test(model, linear, dataloader, dataloader, dataset_size);
+        test(model, linear, dataloader, dataset_size);
 
         if (acc / dataset_size > best_accuracy) {
             best_accuracy = acc / dataset_size;
@@ -124,4 +124,26 @@ void train(torch::jit::script::Module model,
             torch::save(linear, "model_linear.pt");
         }
     }
+}
+
+template <typename Dataloader>
+void test(torch::jit::script::Module model, torch::nn::Linear linear, Dataloader &dataloader, size_t dataset_size) {
+    model.eval();
+    float loss = 0.0, accuracy = 0.0;
+    for (const auto &batch : *dataloader) {
+        auto data = batch.data;
+        auto targets = batch.targets.squeeze();
+        data = data.to(torch::kF32);
+        targets = targets.to(torch::kInt64);
+        std::vector<torch::jit::IValue> input;
+        input.push_back(data);
+        auto output = model.forward(input).toTensor();
+        output = output.view({output.size(0), -1});
+        output = linear(output);
+        auto loss = torch::cross_entropy_loss(torch::softmax(output, 1), targets);
+        auto acc = output.argmax(1).eq(targets).sum();
+        loss += loss.template item<float>();
+        accuracy += acc.template item<float>();
+    }
+    std::cout << "Test Loss: " << loss / dataset_size << ", Acc:" << accuracy / dataset_size << std::endl;
 }
