@@ -17,7 +17,7 @@ if (DOWNLOAD_DERMATOLOGIST)
   endif()
 endif()
 
-add_executable(dermatologist dermatologist.cpp)
+add_executable(dermatologist dermatologist.h dermatologist.cpp)
 
 target_compile_features(dermatologist PUBLIC cxx_range_for)
 target_link_libraries(dermatologist ${TORCH_LIBRARIES})

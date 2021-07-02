@@ -88,7 +88,7 @@ void train(torch::jit::script::Module model,
     int batch_index = 0;
 
     for (int i = 0; i < 25; i++) {
-        float mse = 0.0, acc = 0.0;
+        float mse = 0.0, accuracy = 0.0;
         for (auto &batch : *dataloader) {
             auto data = batch.data;
             auto target = batch.target.squeeze();
@@ -105,20 +105,20 @@ void train(torch::jit::script::Module model,
             auto loss = torch::cross_entropy_loss(torch::softmax(output, 1), target);
             loss.backward();
             optimizer.step();
-            auto accuracy = output.argmax(1).eq(target).sum;
-            acc += accuracy.template item<float>();
-            mse += mse.template item<float>();
+            auto acc = output.argmax(1).eq(target).sum();
+            accuracy += acc.template item<float>();
+            mse += loss.template item<float>();
             batch_index += 1;
         }
         mse = mse / float(batch_index);  // mean of the loss
         std::cout << "Epoch: " << i << ", "
-                  << "Accuracy: " << acc / dataset_size << ", "
+                  << "Accuracy: " << accuracy / dataset_size << ", "
                   << "MSE: " << mse << std::endl;
 
         test(model, linear, dataloader, dataset_size);
 
-        if (acc / dataset_size > best_accuracy) {
-            best_accuracy = acc / dataset_size;
+        if (accuracy / dataset_size > best_accuracy) {
+            best_accuracy = accuracy / dataset_size;
             printf("Saving model");
             model.save("model.pt");
             torch::save(linear, "model_linear.pt");
@@ -132,7 +132,7 @@ void test(torch::jit::script::Module model, torch::nn::Linear linear, Dataloader
     float loss = 0.0, accuracy = 0.0;
     for (const auto &batch : *dataloader) {
         auto data = batch.data;
-        auto targets = batch.targets.squeeze();
+        auto targets = batch.target.squeeze();
         data = data.to(torch::kF32);
         targets = targets.to(torch::kInt64);
         std::vector<torch::jit::IValue> input;
@@ -146,4 +146,36 @@ void test(torch::jit::script::Module model, torch::nn::Linear linear, Dataloader
         accuracy += acc.template item<float>();
     }
     std::cout << "Test Loss: " << loss / dataset_size << ", Acc:" << accuracy / dataset_size << std::endl;
+}
+
+
+int main(int argc, const char * argv[]) {
+    //folder names for the image classes
+    std::string melanoma = "data/melanoma";
+    std::string nevus = "data/nevus";
+    std::string seborrheic_keratosis = "data/seborrheic_keratosis";
+    std::vector<std::string> folder_names;
+    folder_names.push_back(melanoma);
+    folder_names.push_back(nevus);
+    folder_names.push_back(seborrheic_keratosis);
+
+    // paths of images and integer labels -> still no idea how this works TODO
+    std::pair<std::vector<std::string>, std::vector<int>> pair_images_labels = load_data_from_folder(folder_names);
+
+    std::vector<std::string> list_images = pair_images_labels.first;
+    std::vector<int> list_labels = pair_images_labels.second;
+    std::cout << list_labels << std::endl;
+
+    // init custom dataset class and read data
+    auto cs_dataset = DermDataset(list_images, list_labels).map(torch::data::transforms::Stack<>());
+
+    // load pretrained model
+    torch::jit::script::Module module = torch::jit::load(argv[1]);
+
+    torch::nn::Linear linear(512, 3);
+    torch::optim::Adam opt(linear->parameters(), torch::optim::AdamOptions(0.001));
+    auto dataloader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(cs_dataset));
+
+    train(module, linear, dataloader, opt, cs_dataset.size().value());
+    return 0;
 }
