@@ -7,7 +7,7 @@ torch::Tensor read_data(std::string path) {
 * @param Image path
 * @return Image tensor (shape -> 224, 224, 3)
 */
-    cv::Mat img = cv::imread(path);
+    cv::Mat img = cv::imread(path, 1);
     cv::resize(img, img, cv::Size(224, 224), cv::INTER_CUBIC);
     torch::Tensor img_tensor = torch::from_blob(img.data, {img.rows, img.cols, 3}, torch::kByte);
     img_tensor = img_tensor.permute({2, 0, 1});
@@ -58,15 +58,16 @@ std::pair<std::vector<std::string>, std::vector<int>> load_data_from_folder(
     int label = 0;
     for (auto const &value : folder_names) {
         std::string base_name = value + "/";
-        printf("base_name");
         DIR *dir;
         struct dirent *ent;
+
         if ((dir = opendir(base_name.c_str())) != NULL) {
             while ((ent = readdir(dir)) != NULL) {
                 std::string filename = ent->d_name;
                 if (filename.length() > 4 && filename.substr(filename.length() - 3) == "jpg") {
                     list_images.push_back(base_name + ent->d_name);
                     list_labels.push_back(label);
+                    // std::cout << base_name << " " << label <<std::endl;
                 }
             }
             closedir(dir);
@@ -86,23 +87,27 @@ void train(torch::jit::script::Module model,
            size_t dataset_size) {
     float best_accuracy = 0.0;
     int batch_index = 0;
-
     for (int i = 0; i < 25; i++) {
         float mse = 0.0, accuracy = 0.0;
         for (auto &batch : *dataloader) {
             auto data = batch.data;
             auto target = batch.target.squeeze();
             // TODO: check the docs
+
             data = data.to(torch::kF32);
             target = target.to(torch::kInt64);
 
             std::vector<torch::jit::IValue> input;
             input.push_back(data);
             optimizer.zero_grad();
+
             auto output = model.forward(input).toTensor();
+
             output = output.view({output.size(0), -1});
             output = linear(output);
+
             auto loss = torch::cross_entropy_loss(torch::softmax(output, 1), target);
+
             loss.backward();
             optimizer.step();
             auto acc = output.argmax(1).eq(target).sum();
@@ -148,12 +153,11 @@ void test(torch::jit::script::Module model, torch::nn::Linear linear, Dataloader
     std::cout << "Test Loss: " << loss / dataset_size << ", Acc:" << accuracy / dataset_size << std::endl;
 }
 
-
-int main(int argc, const char * argv[]) {
+int main(int argc, const char *argv[]) {
     //folder names for the image classes
-    std::string melanoma = "data/melanoma";
-    std::string nevus = "data/nevus";
-    std::string seborrheic_keratosis = "data/seborrheic_keratosis";
+    std::string melanoma = "/home/vinc3/Projects/examples/cpp/transfer-learning/data/melanoma";
+    std::string nevus = "/home/vinc3/Projects/examples/cpp/transfer-learning/data/nevus";
+    std::string seborrheic_keratosis = "/home/vinc3/Projects/examples/cpp/transfer-learning/data/seborrheic_keratosis";
     std::vector<std::string> folder_names;
     folder_names.push_back(melanoma);
     folder_names.push_back(nevus);
@@ -164,7 +168,7 @@ int main(int argc, const char * argv[]) {
 
     std::vector<std::string> list_images = pair_images_labels.first;
     std::vector<int> list_labels = pair_images_labels.second;
-    std::cout << list_labels << std::endl;
+
 
     // init custom dataset class and read data
     auto cs_dataset = DermDataset(list_images, list_labels).map(torch::data::transforms::Stack<>());
@@ -174,7 +178,9 @@ int main(int argc, const char * argv[]) {
 
     torch::nn::Linear linear(512, 3);
     torch::optim::Adam opt(linear->parameters(), torch::optim::AdamOptions(0.001));
-    auto dataloader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(cs_dataset));
+
+    auto dataloader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
+        std::move(cs_dataset),4);
 
     train(module, linear, dataloader, opt, cs_dataset.size().value());
     return 0;
