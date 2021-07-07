@@ -124,7 +124,7 @@ void train(torch::jit::script::Module model,
 
         if (accuracy / dataset_size > best_accuracy) {
             best_accuracy = accuracy / dataset_size;
-            printf("Saving model");
+            printf("Saving model\n");
             model.save("model.pt");
             torch::save(linear, "model_linear.pt");
         }
@@ -132,25 +132,36 @@ void train(torch::jit::script::Module model,
 }
 
 template <typename Dataloader>
-void test(torch::jit::script::Module model, torch::nn::Linear linear, Dataloader &dataloader, size_t dataset_size) {
+void test(
+    torch::jit::script::Module model,
+    torch::nn::Linear linear,
+    Dataloader &dataloader,
+    size_t dataset_size) {
     model.eval();
+
     float loss = 0.0, accuracy = 0.0;
+
     for (const auto &batch : *dataloader) {
         auto data = batch.data;
         auto targets = batch.target.squeeze();
+
         data = data.to(torch::kF32);
         targets = targets.to(torch::kInt64);
+
         std::vector<torch::jit::IValue> input;
         input.push_back(data);
+
         auto output = model.forward(input).toTensor();
         output = output.view({output.size(0), -1});
         output = linear(output);
+
         auto loss = torch::cross_entropy_loss(torch::softmax(output, 1), targets);
         auto acc = output.argmax(1).eq(targets).sum();
         loss += loss.template item<float>();
         accuracy += acc.template item<float>();
     }
-    std::cout << "Test Loss: " << loss / dataset_size << ", Acc:" << accuracy / dataset_size << std::endl;
+    // std::cout << "Test Loss: " << loss / dataset_size
+    //           << ", Acc:" << accuracy / dataset_size << std::endl;
 }
 
 int main(int argc, const char *argv[]) {
@@ -169,7 +180,6 @@ int main(int argc, const char *argv[]) {
     std::vector<std::string> list_images = pair_images_labels.first;
     std::vector<int> list_labels = pair_images_labels.second;
 
-
     // init custom dataset class and read data
     auto cs_dataset = DermDataset(list_images, list_labels).map(torch::data::transforms::Stack<>());
 
@@ -180,7 +190,7 @@ int main(int argc, const char *argv[]) {
     torch::optim::Adam opt(linear->parameters(), torch::optim::AdamOptions(0.001));
 
     auto dataloader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
-        std::move(cs_dataset),4);
+        std::move(cs_dataset), 4);
 
     train(module, linear, dataloader, opt, cs_dataset.size().value());
     return 0;
