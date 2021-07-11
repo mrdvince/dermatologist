@@ -1,33 +1,47 @@
-cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-project(dermatologist)
+cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
+
+project(derm VERSION 1.0.0 LANGUAGES CXX)
+
+set(EXECUTABLE_NAME derm)
 set(CMAKE_CXX_STANDARD 14)
 
 find_package(Torch REQUIRED PATHS ~/libtorch)
-find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED PATHS)
 
-option(DOWNLOAD_DERMATOLOGIST "Download the dermatologist dataset from the interweb" OFF)
-if (DOWNLOAD_DERMATOLOGIST)
-  message(STATUS "Downloading dermatologist dataset")
-  execute_process(
-    COMMAND python ${CMAKE_CURRENT_LIST_DIR}/download_dataset.py
-      -d ${CMAKE_BINARY_DIR}/data
-    ERROR_VARIABLE DOWNLOAD_ERROR)
-  if (DOWNLOAD_ERROR)
-    message(FATAL_ERROR "Error downloading dermatologist dataset: ${DOWNLOAD_ERROR}")
-  endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/check_files.cmake)
+
+add_executable(${EXECUTABLE_NAME})
+target_sources(${EXECUTABLE_NAME} PRIVATE main.cpp
+                                          src/model.cpp
+                                          src/trainer.cpp
+                                          src/dataset.cpp
+                                          include/trainer.h
+                                          include/model.h
+                                          include/dataset.h
+)
+
+target_include_directories(${EXECUTABLE_NAME} PRIVATE include)
+
+target_link_libraries(${EXECUTABLE_NAME} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+
+set_target_properties(${EXECUTABLE_NAME} PROPERTIES
+  CXX_STANDARD 14
+  CXX_STANDARD_REQUIRED YES
+)
+option(DOWNLOAD_DATASET "Download the dataset from the interwebs" OFF)
+
+if(DOWNLOAD_DATASET)
+    file(MAKE_DIRECTORY ${DATA_DIR})
+    message(STATUS "Fetching dataset...")
+    execute_process(  COMMAND python ${CMAKE_CURRENT_LIST_DIR}/download_dataset.py -d ${CMAKE_BINARY_DIR}/data ERROR_VARIABLE DOWNLOAD_ERROR)  
+    if (DOWNLOAD_ERROR)
+        message(FATAL_ERROR "Error downloading dataset: ${DOWNLOAD_ERROR}")
+    endif()
 endif()
 
-add_executable(dermatologist dermatologist.h dermatologist.cpp)
-
-target_compile_features(dermatologist PUBLIC cxx_range_for)
-target_link_libraries(dermatologist ${TORCH_LIBRARIES})
-target_link_libraries(dermatologist ${OpenCV_LIBS})
-
-if (MSVC)
-  file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
-  add_custom_command(TARGET dermatologist
-                     POST_BUILD
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                     ${TORCH_DLLS}
-                     $<TARGET_FILE_DIR:dermatologist>)
-endif (MSVC)
+if(MSVC)
+    set_target_properties(${EXECUTABLE_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR})
+    set_target_properties(${EXECUTABLE_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
+    include(copy_torch_dlls)
+    copy_torch_dlls(${EXECUTABLE_NAME})
+endif(MSVC)
