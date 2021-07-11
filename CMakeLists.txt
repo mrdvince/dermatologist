@@ -6,6 +6,7 @@ set(EXECUTABLE_NAME derm)
 set(CMAKE_CXX_STANDARD 14)
 
 find_package(Torch REQUIRED PATHS ~/libtorch)
+find_package(OpenCV REQUIRED PATHS)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/check_files.cmake)
 
@@ -21,7 +22,7 @@ target_sources(${EXECUTABLE_NAME} PRIVATE main.cpp
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE include)
 
-target_link_libraries(${EXECUTABLE_NAME} ${TORCH_LIBRARIES})
+target_link_libraries(${EXECUTABLE_NAME} ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
 set_target_properties(${EXECUTABLE_NAME} PROPERTIES
   CXX_STANDARD 14
