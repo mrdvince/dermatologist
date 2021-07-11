@@ -1,7 +1,7 @@
 #pragma once
 #include <dirent.h>
 #include <torch/torch.h>
-
+#include <torch/script.h>
 #include <opencv2/opencv.hpp>
 
 torch::Tensor read_data(std::string image_path);
