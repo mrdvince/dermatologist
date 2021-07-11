@@ -41,6 +41,7 @@ std::pair<std::vector<std::string>, std::vector<int>> load_data_from_folder(std:
         } else {
             std::cout << "Couldn't open the directory" << std::endl;
         }
+        label += 1;
     }
     return std::make_pair(list_of_images, list_of_labels);
 };
