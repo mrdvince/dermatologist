@@ -28,12 +28,15 @@ set_target_properties(${EXECUTABLE_NAME} PROPERTIES
   CXX_STANDARD 14
   CXX_STANDARD_REQUIRED YES
 )
+
+execute_process(COMMAND python ${CMAKE_CURRENT_LIST_DIR}/convert.py)
+
 option(DOWNLOAD_DATASET "Download the dataset from the interwebs" OFF)
 
 if(DOWNLOAD_DATASET)
     file(MAKE_DIRECTORY ${DATA_DIR})
     message(STATUS "Fetching dataset...")
-    execute_process(  COMMAND python ${CMAKE_CURRENT_LIST_DIR}/download_dataset.py -d ${CMAKE_BINARY_DIR}/data ERROR_VARIABLE DOWNLOAD_ERROR)  
+    execute_process( COMMAND python ${CMAKE_CURRENT_LIST_DIR}/download_dataset.py -d ${CMAKE_BINARY_DIR}/data ERROR_VARIABLE DOWNLOAD_ERROR)  
     if (DOWNLOAD_ERROR)
         message(FATAL_ERROR "Error downloading dataset: ${DOWNLOAD_ERROR}")
     endif()
