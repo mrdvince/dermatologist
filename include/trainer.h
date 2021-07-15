@@ -1,17 +1,14 @@
-#ifndef trainer_h
-#define trainer_h
-
-#include <dirent.h>
-#include <torch/script.h>
+#pragma once
 #include <torch/torch.h>
 
 #include <iostream>
-#include <opencv2/opencv.hpp>
-template <typename Trainloader, typename Validloader>
+
+template <typename Trainloader,typename Validloader>
 void trainer(torch::jit::script::Module net,
              torch::nn::Linear lin,
-             Trainloader &data_loader,
+             Trainloader &train_loader,
              Validloader &valid_loader,
              torch::optim::Optimizer &optimizer,
              size_t dataset_size);
-#endif
+//  https://stackoverflow.com/questions/495021/why-can-templates-only-be-implemented-in-the-header-file
+#include "trainer.tpp"

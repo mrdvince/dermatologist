@@ -1,9 +1,11 @@
-#include "trainer.h"
+#include <torch/torch.h>
+
+torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
 
 template <typename Trainloader, typename Validloader>
 void trainer(torch::jit::script::Module net,
              torch::nn::Linear lin,
-             Trainloader &data_loader,
+             Trainloader &train_loader,
              Validloader &valid_loader,
              torch::optim::Optimizer &optimizer,
              size_t dataset_size) {
@@ -12,9 +14,9 @@ void trainer(torch::jit::script::Module net,
     float train_loss = 0.0;
 
     for (int i = 0; i < 25; i++) {
-        for (auto &batch : *data_loader) {
-            auto data = batch.data;
-            auto target = batch.target.squeeze();
+        for (auto &batch : *train_loader) {
+            auto data = batch.data.to(device);;
+            auto target = batch.target.squeeze().to(device);;
             data = data.to(torch::kF32);
             target = target.to(torch::kInt64);
             std::vector<torch::jit::IValue> input;
@@ -32,8 +34,8 @@ void trainer(torch::jit::script::Module net,
         net.eval();
         int correct = 0, total = 0;
         for (auto &batch : *valid_loader) {
-            auto data = batch.data;
-            auto target = batch.target.squeeze();
+            auto data = batch.data.to(device);;
+            auto target = batch.target.squeeze().to(device);;
             data = data.to(torch::kF32);
             target = target.to(torch::kInt64);
             std::vector<torch::jit::IValue> input;

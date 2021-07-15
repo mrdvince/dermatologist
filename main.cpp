@@ -65,17 +65,14 @@ int main(int argc, const char *argv[]) {
         module = torch::jit::load(argv[1]);
     }
 
-    torch::Device device = torch::kCPU;
-    std::cout << "CUDA DEVICE COUNT: " << torch::cuda::device_count() << std::endl;
-    if (torch::cuda::is_available()) {
-        std::cout << "CUDA is available! Training on GPU." << std::endl;
-        device = torch::kCUDA;
-    }
+    torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
+    std::cout << device << std::endl;
+
     torch::nn::Linear linear(512, 3);
     torch::optim::Adam optimizer(linear->parameters(), torch::optim::AdamOptions(0.001));
     module.to(device);
 
-    float train_size = train_dataset.size().value();
+    size_t train_size = train_dataset.size().value();
 
     trainer(module, linear, train_loader, valid_loader, optimizer, train_size);
 }

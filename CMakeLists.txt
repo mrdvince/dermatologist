@@ -12,11 +12,9 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/check_files.cmake)
 
 add_executable(${EXECUTABLE_NAME})
 target_sources(${EXECUTABLE_NAME} PRIVATE main.cpp
-                                          src/model.cpp
-                                          src/trainer.cpp
+                                          include/trainer.tpp
                                           src/dataset.cpp
                                           include/trainer.h
-                                          include/model.h
                                           include/dataset.h
 )
 
